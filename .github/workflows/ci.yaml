@@ -110,7 +110,7 @@ jobs:
           rm -rf ${HOME}/codesign
 
       - name: Opening signing certificate keychain
-        command: |
+        run: |
           echo "It's all set up"
           # echo "** Don't lock keychain"
           # security set-keychain-settings signchain
