@@ -1,0 +1,146 @@
+name: GNOME Gimp build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      matrix:
+        include:
+        - name: 🍎 macOS arm64
+          platform: macos
+          os: macos-13
+          xcode: "15.0"
+          arch: "arm64"
+          artifact-name: godot-angle-static-arm64-macos-release
+          artifact-path-angle: bin/libANGLE.macos.arm64.a
+          artifact-path-egl: bin/libEGL.macos.arm64.a
+          artifact-path-gles: bin/libGLES.macos.arm64.a
+          flags: arch=arm64
+
+    runs-on: ${{ matrix.os }}
+
+    env:
+      XCODE_DEV_PATH: "/Applications/Xcode_${{ matrix.xcode }}.app/Contents/Developer"
+      VGIMP: 3
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+
+      - name: Select Xcode version
+        if: ${{ matrix.platform == 'macos' || matrix.platform == 'ios' }}
+        run: sudo xcode-select -switch "${XCODE_DEV_PATH}"
+
+      # for local builds, this needs to be checked out to `~/project`
+      - checkout
+
+      - name: Avoid hosts unknown for gitlab.gnome.org
+        run: |
+          mkdir -p ~/.ssh/ && echo -e "Host gitlab.gnome.org\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+
+      - name: Avoid hosts unknown for github
+        run: |
+          mkdir -p ~/.ssh/ && echo -e "Host github.com\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+
+      - name: Install macports
+        run: |
+          scripts/macports0_install.sh --circleci --homedirgimp${VGIMP}
+
+      - name: Clearing artifacts
+        run: |
+          rm -rf ~/macports-gimp${VGIMP}-${{ matrix.arch }}/var/macports/logs
+
+#
+# BUILD
+#
+
+      - name: Build all GIMP dependencies
+        run: |
+          scripts/macports1_install_packages.sh --part1
+          scripts/macports1_install_packages.sh --part2
+          scripts/macports1_install_packages.sh --part3
+          scripts/macports1_install_packages.sh --part4
+
+      - name: Build GIMP
+        # XXX `make check` is not working reliably under circle ci, so we are
+        # not using --check flag
+        run: |
+          scripts/macports2_install_gimp.sh
+
+#
+# PACKAGE
+#
+
+      - name: Setup gtk-mac-bundler
+        run: |
+          if [ ! -d ~/Source/gtk-mac-bundler ]; then
+            mkdir -p ~/Source
+            cd ~/Source
+            git clone https://gitlab.gnome.org/lukaso/gtk-mac-bundler
+            cd gtk-mac-bundler
+            make install
+          fi
+
+      - name: Importing signing certificate
+        run: |
+          # wait for keychain to settle
+          sleep 25
+          mkdir ${HOME}/codesign && cd ${HOME}/codesign
+          echo "$osx_crt" | base64 -D > gnome.p12
+          curl 'https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer' > apple.cer
+          curl 'https://www.apple.com/certificateauthority/DeveloperIDCA.cer' > apple2.cer
+          curl 'https://www.apple.com/certificateauthority/AppleWWDRCAG2.cer' > apple3.cer
+          curl 'https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer' > apple4.cer
+          security create-keychain -p "" signchain
+          security set-keychain-settings signchain
+          security unlock-keychain -u signchain
+          security list-keychains  -s "${HOME}/Library/Keychains/signchain-db" "${HOME}/Library/Keychains/login.keychain-db"
+          security import apple.cer -k signchain  -T /usr/bin/codesign
+          security import apple2.cer -k signchain  -T /usr/bin/codesign
+          security import apple3.cer -k signchain  -T /usr/bin/codesign
+          security import apple4.cer -k signchain  -T /usr/bin/codesign
+          security import gnome.p12  -k signchain -P "$osx_crt_pw" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -k "" signchain
+          security find-identity -v signchain
+          rm -rf ${HOME}/codesign
+
+      - name: Opening signing certificate keychain
+        command: |
+          echo "It's all set up"
+          # echo "** Don't lock keychain"
+          # security set-keychain-settings signchain
+          # echo "** Unlock keychain"
+          # security unlock-keychain -u signchain
+          # echo "** List keychains"
+          # security list-keychains  -s "${HOME}/Library/Keychains/signchain-db" "${HOME}/Library/Keychains/login.keychain-db"
+          # echo "** Set key partition list"
+          # security set-key-partition-list -S apple-tool:,apple: -k "" signchain
+
+      - name: Authorize AppleScript
+        run: |
+          # Authorize applescript on circle ci build
+          epochdate=$(($(date +'%s * 1000 + %-N / 1000000')))
+          tcc_service_appleevents="replace into access (service,client,client_type,auth_value,auth_reason,auth_version,indirect_object_identifier_type,indirect_object_identifier,flags,last_modified) values (\"kTCCServiceAppleEvents\",\"/usr/sbin/sshd\",1,2,4,1,0,\"com.apple.finder\",0,$epochdate);"
+          sudo sqlite3 "${HOME}/Library/Application Support/com.apple.TCC/TCC.db" "$tcc_service_appleevents"
+          
+      - name: Creating DMG package
+        run: |
+          scripts/macports3_build_app.sh
+
+      - name: Check minos and sdk properly set
+        run: |
+          scripts/validate_min_os.py ~/macports-gimp${VGIMP}-osx-app-${{ matrix.arch }}
+
+      - name: Notarizing DMG package
+        run: |
+          package/notarize.sh
+
+      - name: Checksum DMG package
+        run: |
+          package/checksum-artifacts.sh
