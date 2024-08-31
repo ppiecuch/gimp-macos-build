@@ -29,16 +29,15 @@ jobs:
       VGIMP: 3
 
     steps:
+      # for local builds, this needs to be checked out to `~/project`
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
+          path: project
 
       - name: Select Xcode version
         if: ${{ matrix.platform == 'macos' || matrix.platform == 'ios' }}
         run: sudo xcode-select -switch "${XCODE_DEV_PATH}"
-
-      # for local builds, this needs to be checked out to `~/project`
-      - checkout
 
       - name: Avoid hosts unknown for gitlab.gnome.org
         run: |
