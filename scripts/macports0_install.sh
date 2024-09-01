@@ -210,9 +210,9 @@ if [ -n "$FIRST_INSTALL" ]; then
   port -v selfupdate || true
 fi
 
-if [ -n "$GITHUB_WORKSPACE" ]
+if [ -n "$GITHUB_WORKSPACE" ]; then
   pushd "$GITHUB_WORKSPACE/ports"
-elsif [ -d "~/project/ports" ]
+elsif [ -d "~/project/ports" ]; then
   pushd ~/project/ports
 else
   pushd ports

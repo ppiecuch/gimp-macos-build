@@ -13,14 +13,14 @@ jobs:
         include:
         - name: 🍎 macOS arm64
           platform: macos
-          os: macos-13
+          os: macos-13-xlarge
           xcode: "15.0"
           arch: "arm64"
           artifact-name: godot-angle-static-arm64-macos-release
           artifact-path-angle: bin/libANGLE.macos.arm64.a
           artifact-path-egl: bin/libEGL.macos.arm64.a
           artifact-path-gles: bin/libGLES.macos.arm64.a
-          flags: arch=arm64
+          flags: arch=${{ matrix.arch }}
 
     runs-on: ${{ matrix.os }}
 
@@ -33,6 +33,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
+
+#
+# PREPARE
+#
 
       - name: Select Xcode version
         if: ${{ matrix.platform == 'macos' || matrix.platform == 'ios' }}
