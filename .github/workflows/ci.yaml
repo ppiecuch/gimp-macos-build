@@ -37,7 +37,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: 'true'
-          path: project
+          path: ~/project
 
       - name: Select Xcode version
         if: ${{ matrix.platform == 'macos' || matrix.platform == 'ios' }}
