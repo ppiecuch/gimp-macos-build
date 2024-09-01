@@ -11,16 +11,16 @@ jobs:
     strategy:
       matrix:
         include:
-        - name: 🍎 macOS arm64
+        - name: 🍎 macOS x86_64
           platform: macos
-          os: macos-13-xlarge
+          os: macos-13
           xcode: "15.0"
-          arch: "arm64"
-          artifact-name: godot-angle-static-arm64-macos-release
-          artifact-path-angle: bin/libANGLE.macos.arm64.a
-          artifact-path-egl: bin/libEGL.macos.arm64.a
-          artifact-path-gles: bin/libGLES.macos.arm64.a
-          flags: arch=arm64
+          arch: "x86_64"
+          artifact-name: godot-angle-static-x86_64-macos-release
+          artifact-path-angle: bin/libANGLE.macos.x86_64.a
+          artifact-path-egl: bin/libEGL.macos.x86_64.a
+          artifact-path-gles: bin/libGLES.macos.x86_64.a
+          flags: arch=x86_64
 
     runs-on: ${{ matrix.os }}
 
