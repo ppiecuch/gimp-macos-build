@@ -212,7 +212,7 @@ fi
 
 if [ -n "$GITHUB_WORKSPACE" ]; then
   pushd "$GITHUB_WORKSPACE/ports"
-elsif [ -d "~/project/ports" ]; then
+elif [ -d "~/project/ports" ]; then
   pushd ~/project/ports
 else
   pushd ports
