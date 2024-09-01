@@ -210,7 +210,13 @@ if [ -n "$FIRST_INSTALL" ]; then
   port -v selfupdate || true
 fi
 
-pushd ~/project/ports
+if [ -n "$GITHUB_WORKSPACE" ]
+  pushd "$GITHUB_WORKSPACE/ports"
+elsif [ -d "~/project/ports" ]
+  pushd ~/project/ports
+else
+  pushd ports
+fi
 portindex
 popd
 
